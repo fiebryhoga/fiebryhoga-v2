@@ -33,6 +33,14 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $request->user(),
+                'notifications' => $request->user() ? $request->user()->notifications()->take(10)->get()->map(function ($notif) {
+                    return [
+                        'id' => $notif->id,
+                        'text' => $notif->data['message'],
+                        'isRead' => $notif->read_at !== null,
+                        'time' => $notif->created_at->diffForHumans(), // Menghasilkan waktu seperti "2 minutes ago"
+                    ];
+                }) : [],
             ],
         ];
     }
