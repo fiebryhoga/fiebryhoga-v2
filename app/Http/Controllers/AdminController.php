@@ -25,6 +25,7 @@ class AdminController extends Controller
             'admins' => $query->latest()->get()
         ]);
     }
+    
 
     private function logActivity($description, $type = 'info')
     {
@@ -116,22 +117,6 @@ class AdminController extends Controller
         $this->logActivity("Menghapus admin: " . $user->name, 'warning');
 
         return redirect()->back()->with('message', 'Admin berhasil dihapus.');
-    }
-
-    public function globalSearch(Request $request)
-    {
-        $query = $request->input('q');
-
-        if (!$query) {
-            return response()->json([]);
-        }
-
-        $users = User::where('name', 'like', "%{$query}%")
-            ->orWhere('email', 'like', "%{$query}%")
-            ->take(5)
-            ->get(['id', 'name', 'email', 'avatar']);
-
-        return response()->json($users);
     }
 
     public function profileEdit()

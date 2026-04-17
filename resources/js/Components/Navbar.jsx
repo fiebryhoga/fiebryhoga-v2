@@ -1,20 +1,27 @@
-import { usePage } from '@inertiajs/react'
+import { usePage, Link, router } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
-import { Link, router } from '@inertiajs/react';
-import { Moon, Sun, Menu, Bell, User, LogOut, Search, Clock, CheckCircle2, Activity, Loader2, ChevronRight } from 'lucide-react';
+import { Moon, Sun, Menu, Bell, User, LogOut, Search, Clock, CheckCircle2, Activity, Loader2, ChevronRight, LayoutList } from 'lucide-react';
 import { useTheme } from '@/Components/theme-provider';
 import axios from 'axios'; 
 
-export default function Navbar({ user }) {
+export default function Navbar({ user, setSidebarOpen }) {
+    const { auth } = usePage().props;
+    const { theme, setTheme } = useTheme();
+
+    // --- State Pencarian ---
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
     const searchContainerRef = useRef(null);
-    const { theme, setTheme } = useTheme();
+
+    // --- State Notifikasi ---
     const [showNotif, setShowNotif] = useState(false);
     const notifRef = useRef(null);
+    const notifications = auth.notifications || [];
+    const unreadCount = notifications.filter(n => !n.isRead).length;    
 
+    // Deteksi klik di luar (Close Dropdown)
     useEffect(() => {
         function handleClickOutside(event) {
             if (notifRef.current && !notifRef.current.contains(event.target)) setShowNotif(false);
@@ -24,14 +31,23 @@ export default function Navbar({ user }) {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
     
+    // Efek Pencarian (Debounce + Axios via Ziggy Route)
     useEffect(() => {        
         const delayDebounceFn = setTimeout(() => {
             if (searchQuery.trim().length > 0) {
                 setIsSearching(true);
                 setShowSearchDropdown(true);
-                axios.get(`/api/search?q=${searchQuery}`)
-                    .then(res => setSearchResults(res.data))
-                    .catch(err => console.error("Error pencarian:", err))
+                
+                // PERBAIKAN: Gunakan helper route() agar URL selalu presisi
+                axios.get(route('api.search', { q: searchQuery }))
+                    .then(res => {
+                        setSearchResults(res.data);
+                    })
+                    .catch(err => {
+                        console.error("Error pencarian:", err);
+                        // Jika masih error, coba matikan komen di bawah ini untuk melihat detailnya:
+                        // alert('Pencarian gagal: Periksa console browser');
+                    })
                     .finally(() => setIsSearching(false));
             } else {
                 setSearchResults([]);
@@ -45,20 +61,20 @@ export default function Navbar({ user }) {
     const handleSearchSubmit = (e) => {
         e.preventDefault();
         setShowSearchDropdown(false);
-        router.get(route('admins.index'), { search: searchQuery }, { preserveState: true });
     };
 
-    const { auth } = usePage().props;
-    const notifications = auth.notifications || [];
-    const unreadCount = notifications.filter(n => !n.isRead).length;    
     const markAllAsRead = () => {
         router.post(route('notifications.markRead'), {}, { preserveScroll: true });
     };
 
     return (
         <header className="h-16 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex items-center justify-between px-4 md:px-6 shrink-0 relative z-40">            
+            {/* KIRI: Tombol Mobile & Form Search */}
             <div className="flex items-center flex-1 gap-4">
-                <button className="md:hidden text-zinc-500 hover:text-zinc-900 transition-colors">
+                <button 
+                    onClick={() => setSidebarOpen(true)}
+                    className="md:hidden text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors"
+                >
                     <Menu size={20} />
                 </button>
 
@@ -75,50 +91,60 @@ export default function Navbar({ user }) {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onFocus={() => searchQuery.trim() && setShowSearchDropdown(true)}
-                            placeholder="Cari admin, nama, atau email..." 
+                            placeholder="Pencarian Global (Admin, Tech Stack)..." 
                             className="h-10 w-full rounded-xl border border-zinc-200/80 bg-zinc-50/50 px-10 py-2 text-sm shadow-sm transition-all focus:border-zinc-900 focus:bg-white focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-950/50"
                             autoComplete="off"
                         />
                     </form>
                 
+                    {/* DROPDOWN HASIL PENCARIAN */}
                     {showSearchDropdown && (
                         <div className="absolute top-full left-0 mt-2 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 z-50">
                             {isSearching ? (
-                                <div className="p-4 text-center text-sm text-zinc-500">Mencari data...</div>
+                                <div className="p-4 text-center text-sm text-zinc-500">Mencari ke seluruh sistem...</div>
                             ) : searchResults.length > 0 ? (
                                 <div className="py-2">
-                                    <div className="px-4 py-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        Hasil Admin
+                                    <div className="px-4 py-1.5 text-[10px] font-medium text-zinc-400 capitalize tracking-wider flex items-center gap-2">
+                                        <LayoutList size={12} /> Hasil Pencarian Global
                                     </div>
-                                    {searchResults.map((result) => (
-                                        <button 
-                                            key={result.id}
-                                            onClick={() => {
-                                                setShowSearchDropdown(false);                                                
-                                                router.get(route('admins.index'), { search: result.name });
-                                            }}
-                                            className="w-full flex items-center justify-between px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 border overflow-hidden flex items-center justify-center shrink-0">
-                                                    {result.avatar ? (
-                                                        <img src={`/storage/${result.avatar}`} className="w-full h-full object-cover" alt="avatar"/>
-                                                    ) : (
-                                                        <span className="text-xs font-medium text-zinc-600">{result.name.charAt(0)}</span>
-                                                    )}
+                                    <div className="max-h-[60vh] overflow-y-auto">
+                                        {searchResults.map((result) => (
+                                            <button 
+                                                key={result.id}
+                                                onClick={() => {
+                                                    setShowSearchDropdown(false);
+                                                    setSearchQuery('');                                                
+                                                    router.get(result.route); 
+                                                }}
+                                                className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group border-b border-zinc-100 dark:border-zinc-800/50 last:border-0"
+                                            >
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/50 dark:border-zinc-700/50 overflow-hidden flex items-center justify-center shrink-0">
+                                                        {result.image ? (
+                                                            <img src={`/storage/${result.image}`} className="w-full h-full object-cover" alt="img"/>
+                                                        ) : (
+                                                            <Search size={16} className="text-zinc-400" />
+                                                        )}
+                                                    </div>
+                                                    <div className="text-left min-w-0">
+                                                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-tight truncate">{result.title}</p>
+                                                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">{result.subtitle}</p>
+                                                    </div>
                                                 </div>
-                                                <div className="text-left">
-                                                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-tight">{result.name}</p>
-                                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{result.email}</p>
+                                                
+                                                <div className="flex items-center gap-3 shrink-0 ml-2">
+                                                    <span className="hidden sm:inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md text-primary/40">
+                                                        {result.type}
+                                                    </span>
+                                                    <ChevronRight size={16} className="text-zinc-300 group-hover:text-zinc-500 transition-colors" />
                                                 </div>
-                                            </div>
-                                            <ChevronRight size={16} className="text-zinc-300 group-hover:text-zinc-500 transition-colors" />
-                                        </button>
-                                    ))}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="p-4 text-center text-sm text-zinc-500">
-                                    Tidak menemukan hasil untuk "<span className="font-medium text-zinc-900 dark:text-zinc-100">{searchQuery}</span>"
+                                    Tidak ada data sistem yang cocok dengan "<span className="font-medium text-zinc-900 dark:text-zinc-100">{searchQuery}</span>"
                                 </div>
                             )}
                         </div>
@@ -126,7 +152,10 @@ export default function Navbar({ user }) {
                 </div>
             </div>
 
+            {/* KANAN: Notifikasi, Tema, Profil */}
             <div className="flex items-center space-x-3 sm:space-x-5 ml-4">                
+                
+                {/* Bell Notifikasi */}
                 <div className="relative" ref={notifRef}>
                     <button 
                         onClick={() => setShowNotif(!showNotif)}
@@ -176,18 +205,19 @@ export default function Navbar({ user }) {
                                 )}
                             </div>
                             <div className="border-t border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 p-2">
-                            <Link 
-                                href={route('logs.index')} 
-                                className="flex items-center justify-center w-full py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 transition-colors rounded-lg hover:bg-zinc-200/50 dark:hover:bg-zinc-800"
-                            >
-                                <Activity size={14} className="mr-2" />
-                                Lacak Semua Log Aktivitas
-                            </Link>
+                                <Link 
+                                    href={route('logs.index')} 
+                                    className="flex items-center justify-center w-full py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 transition-colors rounded-lg hover:bg-zinc-200/50 dark:hover:bg-zinc-800"
+                                >
+                                    <Activity size={14} className="mr-2" />
+                                    Lacak Semua Log Aktivitas
+                                </Link>
                             </div>
                         </div>
                     )}
                 </div>
 
+                {/* Tema Switch */}
                 <button
                     onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                     className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-50 transition-colors relative"
@@ -196,35 +226,31 @@ export default function Navbar({ user }) {
                 </button>
 
                 <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-800 hidden sm:block"></div>
-
                 
+                {/* Dropdown Profil */}
                 <div className="flex items-center gap-3">
                     <div className="hidden sm:flex flex-col items-end">
-                        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-none mb-1 truncate max-w-[120px]">{user.name}</span>
+                        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-none mb-1 truncate max-w-[120px]">{user?.name}</span>
                         <span className="text-[11px] font-base text-zinc-500 dark:text-zinc-400 leading-none tracking-wider">Admin</span>
                     </div>
                     
                     <div className="relative group">
-                        
-                        <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 border-2 border-zinc-200 dark:border-zinc-700 flex items-center justify-center flex-shrink-0 cursor-pointer overflow-hidden shadow-sm transition-all group-hover:border-zinc-400 dark:group-hover:border-zinc-500">
-                            {user.avatar ? (
+                        <div className="w-9 h-9 rounded-full bg-white border-2 border-zinc-200 dark:border-zinc-700 flex items-center justify-center flex-shrink-0 cursor-pointer overflow-hidden shadow-sm transition-all group-hover:border-zinc-400 dark:group-hover:border-zinc-500">
+                            {user?.avatar ? (
                                 <img src={`/storage/${user.avatar}`} alt="Profile" className="w-full h-full object-cover" />
                             ) : (
                                 <span className="font-semibold text-sm text-zinc-600 dark:text-zinc-300">
-                                    {user.name.charAt(0).toUpperCase()}
+                                    {user?.name?.charAt(0)?.toUpperCase() || 'A'}
                                 </span>
                             )}
                         </div>
                         
-                        
                         <div className="absolute top-10 right-0 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pt-2 z-50">
                             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg p-1.5 w-48 animate-in slide-in-from-top-2">
-                                
                                 <div className="sm:hidden px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 mb-1">
-                                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{user.name}</p>
-                                    <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+                                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{user?.name}</p>
+                                    <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
                                 </div>
-                                
                                 <Link 
                                     href={route('profile.edit')} 
                                     className="flex items-center px-3 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:text-zinc-50 dark:hover:bg-zinc-800/50 rounded-lg transition-colors"

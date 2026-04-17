@@ -9,6 +9,8 @@ use App\Http\Controllers\EducationController;
 use App\Http\Controllers\CareerController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\SearchController;
+use App\Http\Controllers\GalleryController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -28,13 +30,15 @@ Route::get('/dashboard', function () {
 
 Route::middleware('auth')->group(function () {
 
+    Route::get('/api/search', [SearchController::class, 'globalSearch'])->name('api.search');
+
     Route::post('/notifications/mark-as-read', function () {
         auth()->user()->unreadNotifications->markAsRead();
         return back();
     })->name('notifications.markRead');
 
     Route::get('/admin/logs', [ActivityLogController::class, 'index'])->name('logs.index');
-    Route::get('/api/search', [App\Http\Controllers\AdminController::class, 'globalSearch'])->name('api.search');
+    // Route::get('/api/search', [App\Http\Controllers\AdminController::class, 'globalSearch'])->name('api.search');
 
     Route::get('/admins', [AdminController::class, 'index'])->name('admins.index');
     Route::post('/admins', [AdminController::class, 'store'])->name('admins.store');
@@ -92,6 +96,17 @@ Route::middleware('auth')->group(function () {
     Route::post('/contacts/{contact}', [App\Http\Controllers\ContactController::class, 'update'])->name('contacts.update');
     Route::delete('/contacts/{contact}', [App\Http\Controllers\ContactController::class, 'destroy'])->name('contacts.destroy');
     Route::post('/admin/contacts/update-order', [App\Http\Controllers\ContactController::class, 'updateOrder'])->name('contacts.update-order');
+
+    Route::get('/gallery', [GalleryController::class, 'index'])->name('gallery.index');
+    Route::post('/gallery/albums', [GalleryController::class, 'storeAlbum'])->name('gallery.albums.store');
+    Route::delete('/gallery/albums/{album}', [GalleryController::class, 'destroyAlbum'])->name('gallery.albums.destroy');
+
+    Route::post('/gallery/images', [GalleryController::class, 'storeImages'])->name('gallery.images.store');
+    Route::put('/gallery/images/{image}', [GalleryController::class, 'updateImage'])->name('gallery.images.update');
+    Route::delete('/gallery/images/{image}', [GalleryController::class, 'destroyImage'])->name('gallery.images.destroy');
+
+    Route::post('/gallery/images/bulk-destroy', [GalleryController::class, 'bulkDestroy'])->name('gallery.images.bulk-destroy');
+    Route::post('/gallery/images/bulk-move', [GalleryController::class, 'bulkMove'])->name('gallery.images.bulk-move');
 
     
     Route::get('/profile', [AdminController::class, 'profileEdit'])->name('profile.edit');
