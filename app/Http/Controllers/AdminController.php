@@ -79,11 +79,18 @@ class AdminController extends Controller
             $request->validate(['password' => 'string|min:8']);
             $validated['password'] = Hash::make($request->password);
         }
+
+        // ==========================================
+        // PERBAIKAN BUG FOTO MENGHILANG
+        // ==========================================
         if ($request->hasFile('avatar')) {       
             if ($user->avatar) {
                 Storage::disk('public')->delete($user->avatar);
             }
             $validated['avatar'] = $request->file('avatar')->store('avatars', 'public');
+        } else {
+            // Hapus field avatar dari $validated agar data lama tidak ditimpa null
+            unset($validated['avatar']);
         }
 
         $user->update($validated);
@@ -128,48 +135,51 @@ class AdminController extends Controller
     }
 
     public function profileEdit()
-{
-    return Inertia::render('Admin/Profile/Edit', [
-        'user' => auth()->user(),
-    ]);
-}
+    {
+        return Inertia::render('Admin/Profile/Edit', [
+            'user' => auth()->user(),
+        ]);
+    }
 
-public function profileUpdate(Request $request)
-{
-    $user = auth()->user();
+    public function profileUpdate(Request $request)
+    {
+        $user = auth()->user();
 
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-        'birth_date' => 'nullable|date',
-        'gender' => 'nullable|in:L,P',
-        'phone' => 'nullable|string|max:20',
-        'address' => 'nullable|string',
-        'avatar' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-        'password' => 'nullable|string|min:8|confirmed', // Pastikan ada input password_confirmation di frontend
-    ]);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'birth_date' => 'nullable|date',
+            'gender' => 'nullable|in:L,P',
+            'phone' => 'nullable|string|max:20',
+            'address' => 'nullable|string',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'password' => 'nullable|string|min:8|confirmed', 
+        ]);
 
-    if ($request->hasFile('avatar')) {
-        if ($user->avatar) {
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar);
+        // ==========================================
+        // PERBAIKAN BUG FOTO MENGHILANG DI HALAMAN PROFIL
+        // ==========================================
+        if ($request->hasFile('avatar')) {
+            if ($user->avatar) {
+                Storage::disk('public')->delete($user->avatar);
+            }
+            $validated['avatar'] = $request->file('avatar')->store('avatars', 'public');
+        } else {
+            // Hapus field avatar dari $validated agar data lama tidak ditimpa null
+            unset($validated['avatar']);
         }
-        $validated['avatar'] = $request->file('avatar')->store('avatars', 'public');
+
+        if ($request->filled('password')) {
+            $validated['password'] = Hash::make($request->password);
+        } else {
+            unset($validated['password']);
+        }
+
+        $user->update($validated);
+        
+        $this->logActivity("Memperbarui profil pribadi", 'info');
+        auth()->user()->notify(new SystemActivity("Profil Anda berhasil diperbarui.", "info"));
+
+        return redirect()->back()->with('message', 'Profil Anda berhasil diperbarui.');
     }
-
-    if ($request->filled('password')) {
-        $validated['password'] = \Illuminate\Support\Facades\Hash::make($request->password);
-    } else {
-        unset($validated['password']);
-    }
-
-    $user->update($validated);
-    
-    // Opsional: Beri log aktivitas
-    $this->logActivity("Memperbarui profil pribadi", 'info');
-    auth()->user()->notify(new \App\Notifications\SystemActivity("Profil Anda berhasil diperbarui.", "info"));
-
-    return redirect()->back()->with('message', 'Profil Anda berhasil diperbarui.');
-}
-
-    
 }

@@ -11,4 +11,9 @@ class TechStack extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    public function projects()
+    {
+        return $this->belongsToMany(Project::class, 'project_tech_stack');
+    }
 }

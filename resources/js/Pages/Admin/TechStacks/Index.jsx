@@ -90,7 +90,6 @@ export default function Index({ techStacks }) {
 
     const toggleActive = (tech) => {
         router.post(route('tech-stacks.update', tech.id), {
-            _method: 'put',
             name: tech.name,
             type: tech.type,
             is_active: !tech.is_active
@@ -190,11 +189,12 @@ export default function Index({ techStacks }) {
                                 required
                             >
                                 <option value="" disabled>Pilih Kategori...</option>
-                                <option value="Framework">Framework</option>
+                                <option value="Framework">Framework Backend</option>
+                                <option value="Framework">Framework Frontend</option>
                                 <option value="Language">Bahasa Pemrograman</option>
                                 <option value="Database">Database</option>
                                 <option value="Styling">Styling / UI</option>
-                                <option value="Tools">Tools / DevOps</option>
+                                <option value="Tools">Tools</option>
                             </select>
                         </div>
 

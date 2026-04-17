@@ -1,15 +1,20 @@
 import { useState } from 'react';
 import { Link } from '@inertiajs/react';
 
-import { LayoutDashboard, Users, Layers, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { LayoutDashboard, Users, Layers, FolderGit2, GraduationCap, Briefcase, FileText, Share2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 export default function Sidebar() {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
 
     const menuItems = [
         { title: 'Dashboard', icon: LayoutDashboard, href: route('dashboard'), active: route().current('dashboard') },
-        { title: 'Manajemen Admin', icon: Users, href: route('admins.index'), active: route().current('admins.* ') },
-        { title: 'Tech Stack', icon: Layers, href: route('tech-stacks.index'), active: route().current('tech-stacks.*') }, 
+        { title: 'Manajemen Admin', icon: Users, href: route('admins.index'), active: route().current('admins.*') },
+        { title: 'Tech Stack', icon: Layers, href: route('tech-stacks.index'), active: route().current('tech-stacks.*') },
+        { title: 'Projects', icon: FolderGit2, href: route('projects.index'), active: route().current('projects.*') },
+        { title: 'Education', icon: GraduationCap, href: route('educations.index'), active: route().current('educations.*') },
+        { title: 'Karir / Pengalaman', icon: Briefcase, href: route('careers.index'), active: route().current('careers.*') },
+        { title: 'Blog / Tulisan', icon: FileText, href: route('articles.index'), active: route().current('articles.*') },
+        { title: 'Sosial Media & Kontak', icon: Share2, href: route('contacts.index'), active: route().current('contacts.*') },
     ];
 
     return (

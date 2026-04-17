@@ -34,6 +34,7 @@
         "esbuild-wasm": "^0.28.0",
         "lucide-react": "^1.8.0",
         "radix-ui": "^1.4.3",
+        "react-quill": "^2.0.0",
         "shadcn": "^4.2.0",
         "tailwind-merge": "^3.5.0",
         "tailwindcss-animate": "^1.0.7",
