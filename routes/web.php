@@ -12,6 +12,7 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\ConnectionController;
+use App\Http\Controllers\CodingNoteController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -119,6 +120,21 @@ Route::middleware('auth')->group(function () {
     Route::post('/connection-tags', [ConnectionController::class, 'storeTag'])->name('connection-tags.store');
     Route::put('/connection-tags/{tag}', [ConnectionController::class, 'updateTag'])->name('connection-tags.update');
     Route::delete('/connection-tags/{tag}', [ConnectionController::class, 'destroyTag'])->name('connection-tags.destroy');
+
+    Route::post('/connections/bulk-destroy', [ConnectionController::class, 'bulkDestroy'])->name('connections.bulk-destroy');
+    Route::post('/connections/bulk-move', [ConnectionController::class, 'bulkMove'])->name('connections.bulk-move');
+
+    Route::get('/coding', [CodingNoteController::class, 'index'])->name('coding.index');
+    Route::post('/coding', [CodingNoteController::class, 'store'])->name('coding.store');
+    Route::get('/coding/create', [CodingNoteController::class, 'create'])->name('coding.create');
+    Route::get('/coding/{coding}', [CodingNoteController::class, 'show'])->name('coding.show');
+    Route::get('/coding/{coding}/edit', [CodingNoteController::class, 'edit'])->name('coding.edit');
+    Route::put('/coding/{coding}', [CodingNoteController::class, 'update'])->name('coding.update');
+    Route::delete('/coding/{coding}', [CodingNoteController::class, 'destroy'])->name('coding.destroy');
+
+    Route::post('/coding-folders', [CodingNoteController::class, 'storeFolder'])->name('coding-folders.store');
+    Route::put('/coding-folders/{folder}', [CodingNoteController::class, 'updateFolder'])->name('coding-folders.update');
+    Route::delete('/coding-folders/{folder}', [CodingNoteController::class, 'destroyFolder'])->name('coding-folders.destroy');
     
     Route::get('/profile', [AdminController::class, 'profileEdit'])->name('profile.edit');
     Route::post('/profile', [AdminController::class, 'profileUpdate'])->name('profile.update');

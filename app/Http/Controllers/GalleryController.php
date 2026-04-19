@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
 use App\Models\Album;
 use App\Models\GalleryImage;
 use App\Models\ActivityLog;
@@ -12,7 +14,6 @@ use Inertia\Inertia;
 
 class GalleryController extends Controller
 {
-    // --- HELPER UNTUK LOG AKTIVITAS ---
     private function logActivity($description, $type = 'info')
     {
         ActivityLog::create([
@@ -52,30 +53,23 @@ class GalleryController extends Controller
                 break;
         }
 
-        // Ambil Album dalam bentuk hirarki (yang tidak punya parent = root)
         $albumsTree = Album::whereNull('parent_id')
             ->with(['children' => function($q) {
-                // Load sub-albums dan hitung jumlah fotonya
                 $q->withCount('images')->with('children');
             }])
             ->withCount('images')
             ->latest()
             ->get();
 
-        // Ambil semua album flat (untuk pilihan dropdown)
         $allAlbums = Album::select('id', 'name')->orderBy('name')->get();
 
         return Inertia::render('Admin/Gallery/Index', [
             'albumsTree' => $albumsTree,
             'allAlbums' => $allAlbums,
-            'images' => $query->get(),
+            'images' => $query->paginate(100)->withQueryString(), 
             'currentFilter' => ['album_id' => $albumId, 'sort' => $sort]
         ]);
     }
-
-    // ==========================================
-    // MANAJEMEN ALBUM
-    // ==========================================
 
     public function storeAlbum(Request $request)
     {
@@ -87,45 +81,57 @@ class GalleryController extends Controller
         
         Album::create($validated);
 
-        // Log & Notif
         $this->logActivity("Membuat album baru: {$validated['name']}", 'success');
         auth()->user()->notify(new SystemActivity("Album '{$validated['name']}' berhasil dibuat.", "success"));
 
         return redirect()->back()->with('message', 'Album berhasil dibuat.');
     }
 
+    // --- FITUR UPDATE DIPERBARUI UNTUK MENDUKUNG PINDAH POSISI (MOVE) ---
     public function updateAlbum(Request $request, Album $album)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'parent_id' => 'nullable|exists:albums,id' // Tambahan validasi parent_id
         ]);
         
         $oldName = $album->name;
         $album->update($validated);
         
-        // Log & Notif
-        $this->logActivity("Mengubah nama album dari '{$oldName}' menjadi '{$validated['name']}'", 'info');
-        auth()->user()->notify(new SystemActivity("Nama album berhasil diperbarui menjadi '{$validated['name']}'.", "info"));
+        $this->logActivity("Memperbarui/Memindahkan album '{$oldName}'", 'info');
+        auth()->user()->notify(new SystemActivity("Album berhasil diperbarui.", "info"));
 
-        return redirect()->back()->with('message', 'Nama album berhasil diperbarui.');
+        return redirect()->back()->with('message', 'Album berhasil diperbarui.');
     }
 
-    public function destroyAlbum(Album $album)
+    // --- FITUR DESTROY DIPERBARUI UNTUK MENDUKUNG HAPUS PAKSA (FORCE DELETE) ---
+    public function destroyAlbum(Request $request, Album $album)
     {
         $name = $album->name;
-        $album->delete(); // Otomatis menghapus sub-album karena cascadeOnDelete
-        
-        // Log & Notif
-        $this->logActivity("Menghapus album galeri: {$name}", 'warning');
-        auth()->user()->notify(new SystemActivity("Album '{$name}' telah dihapus dari galeri.", "warning"));
 
+        // JIKA TOMBOL "HAPUS SEMUA ISI" DITEKAN
+        if ($request->boolean('force')) {
+            // Ambil semua foto di dalam album ini
+            $images = GalleryImage::where('album_id', $album->id)->get();
+            
+            // Hapus file fisik gambar-gambar di dalamnya terlebih dahulu
+            foreach ($images as $img) {
+                if ($img->path) Storage::disk('public')->delete($img->path);
+                if ($img->thumbnail_path) Storage::disk('public')->delete($img->thumbnail_path);
+                $img->delete();
+            }
+            $this->logActivity("Menghapus album '{$name}' BESERTA SELURUH ISINYA secara permanen.", 'danger');
+            auth()->user()->notify(new SystemActivity("Album '{$name}' dan seluruh isinya telah dihapus.", "warning"));
+        } else {
+            // Jika hapus biasa, isi aman (karena nullOnDelete di database)
+            $this->logActivity("Menghapus album '{$name}' (Isi dipindahkan ke Root).", 'warning');
+            auth()->user()->notify(new SystemActivity("Album '{$name}' telah dihapus dari galeri.", "warning"));
+        }
+
+        $album->delete(); 
+        
         return redirect()->route('gallery.index')->with('message', 'Album dan isinya telah diatur ulang.');
     }
-
-
-    // ==========================================
-    // MANAJEMEN GAMBAR (SINGLE & BULK)
-    // ==========================================
 
     public function storeImages(Request $request)
     {
@@ -135,30 +141,36 @@ class GalleryController extends Controller
             'images.*' => 'image|max:10240', // Max 10MB
         ]);
 
+        $manager = new ImageManager(new Driver());
         $count = 0;
+
         foreach ($request->file('images') as $file) {
-            $path = $file->store('gallery', 'public');
+            $originalPath = $file->store('gallery/originals', 'public');
+            
             $bytes = $file->getSize();
             $size = $bytes >= 1048576 ? number_format($bytes / 1048576, 2) . ' MB' : number_format($bytes / 1024, 2) . ' KB';
+
+            $thumbName = 'thumb_' . $file->hashName();
+            $thumbPath = 'gallery/thumbnails/' . $thumbName;
+            
+            $image = $manager->read($file);
+            $image->scale(width: 500); 
+            
+            Storage::disk('public')->put($thumbPath, $image->toJpeg(60)->toString());
 
             GalleryImage::create([
                 'album_id' => $request->album_id,
                 'name' => pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
-                'path' => $path,
+                'path' => $originalPath,
+                'thumbnail_path' => $thumbPath, 
                 'size' => $size,
                 'mime_type' => $file->getClientOriginalExtension(),
             ]);
+            
             $count++;
         }
 
-        // Tentukan nama album tujuan untuk notifikasi
-        $albumName = "Tanpa Album";
-        if ($request->album_id) {
-            $album = Album::find($request->album_id);
-            if ($album) $albumName = $album->name;
-        }
-
-        // Log & Notif
+        $albumName = $request->album_id ? Album::find($request->album_id)?->name ?? "Tanpa Album" : "Tanpa Album";
         $this->logActivity("Mengunggah {$count} gambar baru ke album '{$albumName}'", 'success');
         auth()->user()->notify(new SystemActivity("{$count} gambar berhasil diunggah ke galeri.", "success"));
 
@@ -174,7 +186,6 @@ class GalleryController extends Controller
         
         $image->update($validated);
 
-        // Log & Notif (Hanya informatif, tanpa notifikasi bel agar tidak spam jika sering edit)
         $this->logActivity("Memperbarui info gambar: {$validated['name']}", 'info');
 
         return redirect()->back();
@@ -184,13 +195,10 @@ class GalleryController extends Controller
     {
         $name = $image->name;
         
-        if ($image->path) {
-            Storage::disk('public')->delete($image->path);
-        }
+        if ($image->path) Storage::disk('public')->delete($image->path);
+        if ($image->thumbnail_path) Storage::disk('public')->delete($image->thumbnail_path);
         
         $image->delete();
-
-        // Log Aktivitas
         $this->logActivity("Menghapus satu gambar dari galeri: {$name}", 'warning');
 
         return redirect()->back();
@@ -205,13 +213,11 @@ class GalleryController extends Controller
         if ($count === 0) return redirect()->back();
 
         foreach ($images as $img) {
-            if ($img->path) {
-                Storage::disk('public')->delete($img->path);
-            }
+            if ($img->path) Storage::disk('public')->delete($img->path);
+            if ($img->thumbnail_path) Storage::disk('public')->delete($img->thumbnail_path);
             $img->delete();
         }
 
-        // Log & Notif
         $this->logActivity("Menghapus masal {$count} gambar dari galeri", 'danger');
         auth()->user()->notify(new SystemActivity("Sebanyak {$count} gambar telah dihapus secara permanen.", "warning"));
 
@@ -227,15 +233,13 @@ class GalleryController extends Controller
         if ($count === 0) return redirect()->back();
 
         GalleryImage::whereIn('id', $ids)->update(['album_id' => $albumId]);
-
-        // Cari nama album tujuan untuk log
+        
         $albumName = "Luar Album (Root)";
         if ($albumId) {
             $album = Album::find($albumId);
             if ($album) $albumName = $album->name;
         }
-
-        // Log & Notif
+        
         $this->logActivity("Memindahkan {$count} gambar ke album '{$albumName}'", 'info');
         auth()->user()->notify(new SystemActivity("Berhasil memindahkan {$count} gambar.", "info"));
 

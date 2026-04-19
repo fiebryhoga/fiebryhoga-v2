@@ -1,190 +1,86 @@
 import { usePage, Link, router } from '@inertiajs/react';
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { 
     LayoutDashboard, Users, Layers, FolderGit2, GraduationCap, 
     Briefcase, FileText, Share2, PanelLeftClose, PanelLeftOpen, 
-    Image as ImageIcon, Folder, ChevronRight, ChevronDown, LayoutGrid, 
-    MoreVertical, Edit, Trash2, AlertTriangle, Contact2, Tag
+    Image as ImageIcon, Folder, LayoutGrid, AlertTriangle, Contact2, Tag, Code2, AlertOctagon
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Button } from '@/Components/ui/button';
 
-// --- KOMPONEN REKURSIF UNTUK ALBUM ---
-const AlbumSubMenu = ({ album, currentFilter, isSidebarOpen, level = 0, onOpenModal }) => {
-    const checkIfActive = (alb, activeId) => {
-        if (!activeId) return false;
-        if (alb.id == activeId) return true;
-        if (alb.children && alb.children.length > 0) return alb.children.some(child => checkIfActive(child, activeId));
-        return false;
-    };
+import ParentSelector from './Partials/ParentSelector';
+import SidebarSubMenu from './Partials/SidebarSubMenu';
 
-    const shouldBeOpen = checkIfActive(album, currentFilter?.album_id);
-    const [isOpen, setIsOpen] = useState(shouldBeOpen);
-    const [showOptions, setShowOptions] = useState(false);
-    const optionsRef = useRef(null);
-
-    useEffect(() => { if (shouldBeOpen) setIsOpen(true); }, [shouldBeOpen]);
-
-    useEffect(() => {
-        function handleClickOutside(event) {
-            if (optionsRef.current && !optionsRef.current.contains(event.target)) setShowOptions(false);
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    if (!isSidebarOpen) return null;
-
-    return (
-        <div className="flex flex-col w-full">
-            <div className={`group flex items-center justify-between py-1.5 px-2 rounded-md transition-all mb-0.5 relative ${currentFilter?.album_id == album.id ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50'}`}>
-                <Link href={route('gallery.index', { album_id: album.id })} className="flex items-center flex-1 overflow-hidden py-1" style={{ paddingLeft: `${level * 12}px` }}>
-                    <Folder size={14} className={`mr-2 shrink-0 ${currentFilter?.album_id == album.id ? 'fill-zinc-900 dark:fill-zinc-50' : 'fill-zinc-300 dark:fill-zinc-600'}`} />
-                    <span className="text-xs truncate">{album.name}</span>
-                </Link>
-
-                <div className={`flex items-center gap-0.5 transition-opacity ${showOptions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                    <div className="relative" ref={optionsRef}>
-                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowOptions(!showOptions); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 transition-colors">
-                            <MoreVertical size={14} />
-                        </button>
-                        {showOptions && (
-                            <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg py-1 z-50 animate-in fade-in zoom-in-95">
-                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowOptions(false); onOpenModal('rename', album, 'album'); }} className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-700 flex items-center transition-colors">
-                                    <Edit size={12} className="mr-2"/> Ganti Nama
-                                </button>
-                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowOptions(false); onOpenModal('delete', album, 'album'); }} className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center transition-colors">
-                                    <Trash2 size={12} className="mr-2"/> Hapus Album
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                    {album.children && album.children.length > 0 && (
-                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(!isOpen); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400">
-                            {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        </button>
-                    )}
-                </div>
-            </div>
-            {album.children && isOpen && (
-                <div className="flex flex-col mt-0.5">
-                    {album.children.map(child => <AlbumSubMenu key={child.id} album={child} currentFilter={currentFilter} isSidebarOpen={isSidebarOpen} level={level + 1} onOpenModal={onOpenModal} />)}
-                </div>
-            )}
-        </div>
-    );
-};
-
-// --- KOMPONEN REKURSIF UNTUK TAG (KONEKSI) ---
-const TagSubMenu = ({ tag, currentFilter, isSidebarOpen, level = 0, onOpenModal }) => {
-    const checkIfActive = (t, activeId) => {
-        if (!activeId) return false;
-        if (t.id == activeId) return true;
-        if (t.children && t.children.length > 0) return t.children.some(c => checkIfActive(c, activeId));
-        return false;
-    };
-
-    const shouldBeOpen = checkIfActive(tag, currentFilter?.tag_id);
-    const [isOpen, setIsOpen] = useState(shouldBeOpen);
-    const [showOptions, setShowOptions] = useState(false);
-    const optionsRef = useRef(null);
-
-    useEffect(() => { if (shouldBeOpen) setIsOpen(true); }, [shouldBeOpen]);
-
-    useEffect(() => {
-        function handleClickOutside(event) {
-            if (optionsRef.current && !optionsRef.current.contains(event.target)) setShowOptions(false);
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    if (!isSidebarOpen) return null;
-
-    return (
-        <div className="flex flex-col w-full">
-            <div className={`group flex items-center justify-between py-1.5 px-2 rounded-md transition-all mb-0.5 relative ${currentFilter?.tag_id == tag.id ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50'}`}>
-                
-                <Link href={route('connections.index', { tag_id: tag.id })} className="flex items-center flex-1 overflow-hidden py-1" style={{ paddingLeft: `${level * 12}px` }}>
-                    <Tag size={12} className="mr-2 shrink-0" />
-                    <span className="text-xs truncate">{tag.name}</span>
-                </Link>
-
-                <div className={`flex items-center gap-0.5 transition-opacity ${showOptions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                    <div className="relative" ref={optionsRef}>
-                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowOptions(!showOptions); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 transition-colors">
-                            <MoreVertical size={14} />
-                        </button>
-                        {showOptions && (
-                            <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg py-1 z-50 animate-in fade-in zoom-in-95">
-                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowOptions(false); onOpenModal('rename', tag, 'tag'); }} className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-700 flex items-center transition-colors">
-                                    <Edit size={12} className="mr-2"/> Ganti Nama
-                                </button>
-                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowOptions(false); onOpenModal('delete', tag, 'tag'); }} className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center transition-colors">
-                                    <Trash2 size={12} className="mr-2"/> Hapus Tag
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                    {tag.children && tag.children.length > 0 && (
-                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(!isOpen); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400">
-                            {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        </button>
-                    )}
-                </div>
-            </div>
-            {tag.children && isOpen && (
-                <div className="flex flex-col mt-0.5">
-                    {tag.children.map(child => <TagSubMenu key={child.id} tag={child} currentFilter={currentFilter} isSidebarOpen={isSidebarOpen} level={level + 1} onOpenModal={onOpenModal} />)}
-                </div>
-            )}
-        </div>
-    );
-};
-
-// --- SIDEBAR UTAMA ---
 export default function Sidebar({ isSidebarOpen, setSidebarOpen }) {
-    const { albumsTree = [], tagsTree = [], currentFilter = {} } = usePage().props;
+    const { albumsTree = [], tagsTree = [], foldersTree = [], currentFilter = {} } = usePage().props;
 
-    // Entity akan mendeteksi apakah kita sedang mengedit 'album' atau 'tag'
     const [modalConfig, setModalConfig] = useState({ isOpen: false, type: null, entity: null, item: null });
     const [newName, setNewName] = useState('');
+    const [selectedParentId, setSelectedParentId] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
     const openModal = (type, item, entity) => {
         setModalConfig({ isOpen: true, type, entity, item });
         if (type === 'rename') setNewName(item.name);
+        if (type === 'move') setSelectedParentId(item.parent_id || ''); 
+        if (type === 'createSub') { setNewName(''); setSelectedParentId(item.id); } 
     };
 
     const closeModal = () => {
         setModalConfig({ isOpen: false, type: null, entity: null, item: null });
-        setNewName('');
+        setNewName(''); setSelectedParentId('');
     };
 
-    const submitRename = (e) => {
-        e.preventDefault();
+    const routeMap = {
+        'album': { store: 'gallery.albums.store', update: 'gallery.albums.update', destroy: 'gallery.albums.destroy', tree: albumsTree },
+        'tag': { store: 'connection-tags.store', update: 'connection-tags.update', destroy: 'connection-tags.destroy', tree: tagsTree },
+        'folder_coding': { store: 'coding-folders.store', update: 'coding-folders.update', destroy: 'coding-folders.destroy', tree: foldersTree }
+    };
+
+    const getFlatOptions = (isForCreate = false) => {
+        if (!modalConfig.entity) return [];
+        let result = [];
+        const flatten = (nodes, depth) => {
+            nodes.forEach(n => {
+                // Cegah item dipindahkan ke dalam dirinya sendiri atau anak-anaknya
+                if (!isForCreate && modalConfig.item && n.id === modalConfig.item.id) return; 
+                
+                result.push({ 
+                    id: n.id, 
+                    name: '—'.repeat(depth) + (depth > 0 ? ' ' : '') + n.name, 
+                    cleanName: n.name, 
+                    depthIndicator: '—'.repeat(depth) 
+                });
+                if (n.children) flatten(n.children, depth + 1);
+            });
+        };
+        flatten(routeMap[modalConfig.entity].tree, 0);
+        return result;
+    };
+
+    const submitAction = (e) => {
+        e.preventDefault(); setIsProcessing(true);
+        if (modalConfig.type === 'rename') {
+            router.put(route(routeMap[modalConfig.entity].update, modalConfig.item.id), { name: newName }, { onSuccess: () => { closeModal(); setIsProcessing(false); }, preserveScroll: true });
+        } else if (modalConfig.type === 'move') {
+            router.put(route(routeMap[modalConfig.entity].update, modalConfig.item.id), { name: modalConfig.item.name, parent_id: selectedParentId === '' ? null : selectedParentId }, { onSuccess: () => { closeModal(); setIsProcessing(false); }, preserveScroll: true });
+        } else if (modalConfig.type === 'createSub') {
+            router.post(route(routeMap[modalConfig.entity].store), { name: newName, parent_id: selectedParentId === '' ? null : selectedParentId }, { onSuccess: () => { closeModal(); setIsProcessing(false); }, preserveScroll: true });
+        }
+    };
+
+    const submitDelete = (isForceDelete = false) => {
         setIsProcessing(true);
-        const routeName = modalConfig.entity === 'album' ? 'gallery.albums.update' : 'connection-tags.update';
-        
-        router.put(route(routeName, modalConfig.item.id), { name: newName }, {
+        router.delete(route(routeMap[modalConfig.entity].destroy, modalConfig.item.id), {
+            data: { force: isForceDelete },
             onSuccess: () => { closeModal(); setIsProcessing(false); },
-            onError: () => setIsProcessing(false),
             preserveScroll: true
         });
     };
 
-    const submitDelete = () => {
-        setIsProcessing(true);
-        const routeName = modalConfig.entity === 'album' ? 'gallery.albums.destroy' : 'connection-tags.destroy';
-        
-        router.delete(route(routeName, modalConfig.item.id), {
-            onSuccess: () => { closeModal(); setIsProcessing(false); },
-            onError: () => setIsProcessing(false),
-            preserveScroll: true
-        });
-    };
+    const getActiveIcon = () => modalConfig.entity === 'tag' ? Tag : Folder;
 
     const menuItems = [
         { title: 'Dashboard', icon: LayoutDashboard, href: route('dashboard'), active: route().current('dashboard') },
@@ -197,6 +93,7 @@ export default function Sidebar({ isSidebarOpen, setSidebarOpen }) {
         { title: 'Sosial Media & Kontak', icon: Share2, href: route('contacts.index'), active: route().current('contacts.*') },
         { title: 'Galeri Media', icon: ImageIcon, href: route('gallery.index'), active: route().current('gallery.*') },
         { title: 'Koneksi & Relasi', icon: Contact2, href: route('connections.index'), active: route().current('connections.*') },
+        { title: 'Catatan Coding', icon: Code2, href: route('coding.index'), active: route().current('coding.*') },
     ];
 
     return (
@@ -219,8 +116,9 @@ export default function Sidebar({ isSidebarOpen, setSidebarOpen }) {
 
                 <nav className="flex-1 py-4 px-3 space-y-1.5 pb-20 md:pb-4 overflow-y-auto">
                     {menuItems.map((item, index) => {
-                        const isGalleryActive = item.title === 'Galeri Media' && route().current('gallery.*');
-                        const isConnectionsActive = item.title === 'Koneksi & Relasi' && route().current('connections.*');
+                        const isGallery = item.title === 'Galeri Media' && route().current('gallery.*');
+                        const isConnections = item.title === 'Koneksi & Relasi' && route().current('connections.*');
+                        const isCoding = item.title === 'Catatan Coding' && route().current('coding.*');
 
                         return (
                             <div key={index} className="flex flex-col">
@@ -235,21 +133,27 @@ export default function Sidebar({ isSidebarOpen, setSidebarOpen }) {
                                     )}
                                 </Link>
 
-                                {/* RENDER POHON ALBUM (Galeri) */}
-                                {isGalleryActive && isSidebarOpen && (
-                                    <div className="mt-1.5 mb-2 ml-5 pl-2 border-l-2 border-zinc-100 dark:border-zinc-800 flex flex-col gap-0.5">
-                                        <Link href={route('gallery.index', { album_id: '' })} className={`flex items-center px-2 py-1.5 rounded-md text-xs transition-colors ${!currentFilter?.album_id ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}><LayoutGrid size={14} className="mr-2" /> Semua Media</Link>
-                                        <Link href={route('gallery.index', { album_id: 'uncategorized' })} className={`flex items-center px-2 py-1.5 rounded-md text-xs transition-colors mb-2 ${currentFilter?.album_id === 'uncategorized' ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}><ImageIcon size={14} className="mr-2" /> Tanpa Album</Link>
-                                        {albumsTree.map(album => <AlbumSubMenu key={album.id} album={album} currentFilter={currentFilter} isSidebarOpen={isSidebarOpen} onOpenModal={openModal} />)}
+                                {isGallery && isSidebarOpen && (
+                                    <div className="mt-1.5 mb-2 ml-5 pl-2 border-l border-black/25 dark:border-white/25 flex flex-col gap-0.5">
+                                        <Link href={route('gallery.index', { album_id: '' })} className={`flex items-center px-2 py-2.5 rounded-md text-xs transition-colors ${!currentFilter?.album_id ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}><LayoutGrid size={14} className="mr-2" /> Semua Media</Link>
+                                        <Link href={route('gallery.index', { album_id: 'uncategorized' })} className={`flex items-center px-2 py-2.5 rounded-md text-xs transition-colors mb-2 ${currentFilter?.album_id === 'uncategorized' ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}><ImageIcon size={14} className="mr-2" /> Tanpa Album</Link>
+                                        {albumsTree.map(album => <SidebarSubMenu key={album.id} item={album} currentFilter={currentFilter} isSidebarOpen={isSidebarOpen} onOpenModal={openModal} config={{ idKey: 'album_id', icon: Folder, route: 'gallery.index', entity: 'album', label: 'Album' }} />)}
                                     </div>
                                 )}
 
-                                {/* RENDER POHON TAG (Koneksi) */}
-                                {isConnectionsActive && isSidebarOpen && (
-                                    <div className="mt-1.5 mb-2 ml-5 pl-2 border-l-2 border-zinc-100 dark:border-zinc-800 flex flex-col gap-0.5">
-                                        <Link href={route('connections.index', { tag_id: '' })} className={`flex items-center px-2 py-1.5 rounded-md text-xs transition-colors ${!currentFilter?.tag_id ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}><Users size={14} className="mr-2" /> Semua Kontak</Link>
-                                        <Link href={route('connections.index', { tag_id: 'untagged' })} className={`flex items-center px-2 py-1.5 rounded-md text-xs transition-colors mb-2 ${currentFilter?.tag_id === 'untagged' ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}><Tag size={14} className="mr-2" /> Tanpa Tag</Link>
-                                        {tagsTree.map(tag => <TagSubMenu key={tag.id} tag={tag} currentFilter={currentFilter} isSidebarOpen={isSidebarOpen} onOpenModal={openModal} />)}
+                                {isConnections && isSidebarOpen && (
+                                    <div className="mt-1.5 mb-2 ml-5 pl-2 border-l border-black/25 dark:border-white/25 flex flex-col gap-0.5">
+                                        <Link href={route('connections.index', { tag_id: '' })} className={`flex items-center px-2 py-2.5 rounded-md text-xs transition-colors ${!currentFilter?.tag_id ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}><Users size={14} className="mr-2" /> Semua Kontak</Link>
+                                        <Link href={route('connections.index', { tag_id: 'untagged' })} className={`flex items-center px-2 py-2.5 rounded-md text-xs transition-colors mb-2 ${currentFilter?.tag_id === 'untagged' ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}><Tag size={14} className="mr-2" /> Tanpa Tag</Link>
+                                        {tagsTree.map(tag => <SidebarSubMenu key={tag.id} item={tag} currentFilter={currentFilter} isSidebarOpen={isSidebarOpen} onOpenModal={openModal} config={{ idKey: 'tag_id', icon: Tag, route: 'connections.index', entity: 'tag', label: 'Tag' }} />)}
+                                    </div>
+                                )}
+
+                                {isCoding && isSidebarOpen && (
+                                    <div className="mt-1.5 mb-2 ml-5 pl-2 border-l border-black/25 dark:border-white/25 flex flex-col gap-0.5">
+                                        <Link href={route('coding.index', { folder_id: '' })} className={`flex items-center px-2 py-2.5 rounded-md text-xs transition-colors ${!currentFilter?.folder_id ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}><Code2 size={14} className="mr-2" /> Semua Catatan</Link>
+                                        <Link href={route('coding.index', { folder_id: 'root' })} className={`flex items-center px-2 py-2.5 rounded-md text-xs transition-colors mb-2 ${currentFilter?.folder_id === 'root' ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50 font-medium' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}><Folder size={14} className="mr-2" /> Tanpa Folder</Link>
+                                        {foldersTree.map(folder => <SidebarSubMenu key={folder.id} item={folder} currentFilter={currentFilter} isSidebarOpen={isSidebarOpen} onOpenModal={openModal} config={{ idKey: 'folder_id', icon: Folder, route: 'coding.index', entity: 'folder_coding', label: 'Folder' }} />)}
                                     </div>
                                 )}
                             </div>
@@ -258,44 +162,57 @@ export default function Sidebar({ isSidebarOpen, setSidebarOpen }) {
                 </nav>
             </aside>
 
-            {/* ================= MODAL AKSI (ALBUM / TAG) SIDEBAR ================= */}
-            
             <Dialog open={modalConfig.isOpen && modalConfig.type === 'rename'} onOpenChange={(open) => !open && closeModal()}>
+                <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Ganti Nama</DialogTitle></DialogHeader>
+                    <form onSubmit={submitAction} className="space-y-4 mt-2">
+                        <div><Label>Nama Baru</Label><Input value={newName} onChange={e => setNewName(e.target.value)} required autoFocus /></div>
+                        <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="outline" onClick={closeModal}>Batal</Button><Button type="submit" disabled={isProcessing}>Simpan</Button></div>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={modalConfig.isOpen && modalConfig.type === 'createSub'} onOpenChange={(open) => !open && closeModal()}>
                 <DialogContent className="sm:max-w-md">
-                    <DialogHeader><DialogTitle>Ganti Nama {modalConfig.entity === 'album' ? 'Album' : 'Tag'}</DialogTitle></DialogHeader>
-                    <form onSubmit={submitRename} className="space-y-4 mt-2">
+                    <DialogHeader><DialogTitle>Buat Kategori Bagian Dalam</DialogTitle></DialogHeader>
+                    <form onSubmit={submitAction} className="space-y-4 mt-2">
+                        <div><Label>Nama Kategori</Label><Input value={newName} onChange={e => setNewName(e.target.value)} required autoFocus /></div>
                         <div>
-                            <Label>Nama Baru</Label>
-                            <Input value={newName} onChange={e => setNewName(e.target.value)} required autoFocus />
+                            <Label className="mb-2 block">Berada di Bawah (Induk)</Label>
+                            <ParentSelector options={getFlatOptions(true)} value={selectedParentId} onChange={setSelectedParentId} icon={getActiveIcon()} />
                         </div>
-                        <div className="flex justify-end gap-2 pt-2">
-                            <Button type="button" variant="outline" onClick={closeModal}>Batal</Button>
-                            <Button type="submit" disabled={isProcessing}>{isProcessing ? 'Menyimpan...' : 'Simpan Nama'}</Button>
+                        <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="outline" onClick={closeModal}>Batal</Button><Button type="submit" disabled={isProcessing}>Buat Sekarang</Button></div>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={modalConfig.isOpen && modalConfig.type === 'move'} onOpenChange={(open) => !open && closeModal()}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader><DialogTitle>Pindahkan "{modalConfig.item?.name}"</DialogTitle></DialogHeader>
+                    <form onSubmit={submitAction} className="space-y-4 mt-2">
+                        <div>
+                            <Label className="mb-2 block">Pilih Lokasi Baru</Label>
+                            <ParentSelector options={getFlatOptions(false)} value={selectedParentId} onChange={setSelectedParentId} icon={getActiveIcon()} />
                         </div>
+                        <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="outline" onClick={closeModal}>Batal</Button><Button type="submit" disabled={isProcessing}>Pindahkan</Button></div>
                     </form>
                 </DialogContent>
             </Dialog>
 
             <Dialog open={modalConfig.isOpen && modalConfig.type === 'delete'} onOpenChange={(open) => !open && closeModal()}>
-                <DialogContent className="sm:max-w-md border-red-200 dark:border-red-900/50">
-                    <DialogHeader>
-                        <DialogTitle className="text-red-600 dark:text-red-500 flex items-center gap-2">
-                            <AlertTriangle size={18} /> Hapus {modalConfig.entity === 'album' ? 'Album' : 'Tag'}
-                        </DialogTitle>
-                        <DialogDescription className="pt-2 text-zinc-700 dark:text-zinc-300">
-                            Yakin ingin menghapus {modalConfig.entity === 'album' ? 'album' : 'tag'} <strong>{modalConfig.item?.name}</strong>?
-                            <br/><br/>
-                            <span className="block p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-amber-800 dark:text-amber-500 text-xs font-medium">
-                                Jangan khawatir, data ({modalConfig.entity === 'album' ? 'foto' : 'orang'}) di dalamnya tidak akan terhapus dan akan dikembalikan ke kategori "Tanpa {modalConfig.entity === 'album' ? 'Album' : 'Tag'}".
-                            </span>
-                        </DialogDescription>
+                <DialogContent className="sm:max-w-md border-orange-200">
+                    <DialogHeader><DialogTitle className="text-orange-600 flex items-center gap-2"><AlertTriangle size={18} /> Hapus Kategori</DialogTitle>
+                        <DialogDescription className="pt-2">Yakin ingin menghapus <strong>{modalConfig.item?.name}</strong>? Isi di dalamnya <b>TIDAK AKAN</b> terhapus dan akan berpindah ke kategori utama (Root).</DialogDescription>
                     </DialogHeader>
-                    <div className="flex justify-end gap-2 pt-2">
-                        <Button type="button" variant="outline" onClick={closeModal}>Batal</Button>
-                        <Button type="button" variant="destructive" onClick={submitDelete} disabled={isProcessing}>
-                            {isProcessing ? 'Menghapus...' : 'Ya, Hapus'}
-                        </Button>
-                    </div>
+                    <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="outline" onClick={closeModal}>Batal</Button><Button type="button" onClick={() => submitDelete(false)} disabled={isProcessing}>Ya, Hapus Saja</Button></div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={modalConfig.isOpen && modalConfig.type === 'deleteAll'} onOpenChange={(open) => !open && closeModal()}>
+                <DialogContent className="sm:max-w-md border-red-500 bg-red-50 dark:bg-red-950/20">
+                    <DialogHeader><DialogTitle className="text-red-600 flex items-center gap-2"><AlertOctagon size={18} /> Hapus Permanen & Isinya</DialogTitle>
+                        <DialogDescription className="pt-2 text-red-800 dark:text-red-400">PERINGATAN! Anda akan menghapus folder <strong>{modalConfig.item?.name}</strong> beserta <b>SELURUH ISI</b> di dalamnya secara permanen. Tindakan ini tidak bisa dibatalkan.</DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="outline" onClick={closeModal}>Batal</Button><Button type="button" variant="destructive" onClick={() => submitDelete(true)} disabled={isProcessing}>Hapus Semua & Permanen</Button></div>
                 </DialogContent>
             </Dialog>
         </>

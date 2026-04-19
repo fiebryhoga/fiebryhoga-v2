@@ -1,4 +1,5 @@
 import defaultTheme from 'tailwindcss/defaultTheme';
+import typography from '@tailwindcss/typography';
 import forms from '@tailwindcss/forms';
 
 /** @type {import('tailwindcss').Config} */
@@ -57,5 +58,5 @@ export default {
             },
         },
     },
-    plugins: [forms, require("tailwindcss-animate")],
+    plugins: [forms, require("tailwindcss-animate"), typography],
 };

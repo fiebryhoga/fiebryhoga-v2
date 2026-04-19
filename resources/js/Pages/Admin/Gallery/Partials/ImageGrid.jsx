@@ -27,7 +27,7 @@ export default function ImageGrid({
         }
     };
 
-    if (images.length === 0) {
+    if (!images || !images.data || images.data.length === 0) {
         return (
             <div className="h-full flex flex-col items-center justify-center text-zinc-400 pb-20">
                 <ImageIcon size={48} className="mb-4 opacity-20" />
@@ -38,15 +38,18 @@ export default function ImageGrid({
 
     return (
         <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-zinc-50/50 dark:bg-zinc-950/50 relative">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 pb-24">
-                {images.map(img => {
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-10 gap-3 pb-6">
+                {/* UBAH images.map MENJADI images.data.map */}
+                {images.data.map(img => {
                     const isSelected = selectedIds.includes(img.id);
                     return (
                         <div key={img.id} className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all bg-zinc-100 dark:bg-zinc-800 ${isSelected ? 'border-blue-500 shadow-md scale-[0.98]' : 'border-transparent hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
                             
                             <img 
-                                src={`/storage/${img.path}`} 
+                                
+                                src={`/storage/${img.thumbnail_path || img.path}`} 
                                 alt={img.name} 
+                                loading="lazy"
                                 className="w-full h-full object-cover cursor-pointer" 
                                 onClick={() => isMultiSelecting ? toggleSelect(img.id) : setSelectedImage(img)} 
                             />
@@ -59,7 +62,7 @@ export default function ImageGrid({
                                 {isSelected && <CheckSquare size={12} />}
                             </div>
 
-                            {/* Hover Actions (Jika tidak diselect) */}
+                            {/* Hover Actions */}
                             {!isSelected && (
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 pointer-events-none">
                                     <div className="flex justify-end gap-1 pointer-events-auto">
@@ -76,6 +79,27 @@ export default function ImageGrid({
                     )
                 })}
             </div>
+
+            {/* --- KOMPONEN PAGINATION --- */}
+            {images.links && images.links.length > 3 && (
+                <div className="flex justify-center pb-20">
+                    <div className="flex flex-wrap items-center gap-1 bg-white dark:bg-zinc-900 px-3 py-2 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
+                        {images.links.map((link, index) => (
+                            <button
+                                key={index}
+                                onClick={() => link.url && router.get(link.url, {}, { preserveScroll: true })}
+                                disabled={!link.url || link.active}
+                                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                                    link.active ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-medium' : 
+                                    !link.url ? 'text-zinc-400 cursor-not-allowed' : 
+                                    'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'
+                                }`}
+                                dangerouslySetInnerHTML={{ __html: link.label }}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* FLOATING ACTION BAR */}
             {isMultiSelecting && (

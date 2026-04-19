@@ -13,14 +13,19 @@ export default function Index({ allAlbums, images, currentFilter }) {
     const [activeModal, setActiveModal] = useState(null); 
     const [selectedImage, setSelectedImage] = useState(null);
     const [imageToEdit, setImageToEdit] = useState(null);
+    
+    // --- STATE MULTI-SELECT ---
     const [selectedIds, setSelectedIds] = useState([]);
-
     const isMultiSelecting = selectedIds.length > 0;
 
-    // Aksi Pilih Semua
     const selectAll = () => {
-        if (selectedIds.length === images.length) setSelectedIds([]);
-        else setSelectedIds(images.map(img => img.id));
+        // Cek jika jumlah yang dipilih sama dengan jumlah gambar yang TAMPIL di halaman saat ini
+        if (selectedIds.length === images.data.length) {
+            setSelectedIds([]); // Batal pilih semua
+        } else {
+            // Pilih semua ID gambar yang ada di halaman ini
+            setSelectedIds(images.data.map(img => img.id));
+        }
     };
 
     return (
@@ -41,20 +46,31 @@ export default function Index({ allAlbums, images, currentFilter }) {
                         </button>
                         <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1"></div>
 
-                        <h1 className="font-bold text-lg text-zinc-900 dark:text-zinc-100">
+                        <h1 className="font-bold text-lg text-zinc-900 dark:text-zinc-100 hidden sm:block">
                             {!currentFilter.album_id ? 'Semua Media' : currentFilter.album_id === 'uncategorized' ? 'Tanpa Album' : allAlbums.find(a => a.id == currentFilter.album_id)?.name}
                         </h1>
-                        <span className="text-xs font-medium bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 rounded-full text-zinc-600 dark:text-zinc-400">{images.length} item</span>
+                        {/* PERBAIKAN: Gunakan images.total karena pagination */}
+                        <span className="text-xs font-medium bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 rounded-full text-zinc-600 dark:text-zinc-400">
+                            {images.total} item
+                        </span>
                     </div>
                     
                     <div className="flex items-center gap-2">
-                        {images.length > 0 && (
-                            <Button variant="outline" onClick={selectAll} className="hidden sm:flex rounded-lg shadow-sm border-zinc-200 dark:border-zinc-700">
-                                <CheckSquare size={16} className="mr-2"/> {selectedIds.length === images.length ? 'Batal Pilih' : 'Pilih Semua'}
+                        {/* --- TOMBOL PILIH SEMUA --- */}
+                        {/* Munculkan jika ada minimal 1 gambar di halaman ini */}
+                        {images.data && images.data.length > 0 && (
+                            <Button 
+                                variant="outline" 
+                                onClick={selectAll} 
+                                className="hidden sm:flex rounded-lg shadow-sm border-zinc-200 dark:border-zinc-700"
+                            >
+                                <CheckSquare size={16} className="mr-2"/> 
+                                {selectedIds.length === images.data.length ? 'Batal Pilih' : 'Pilih Semua'}
                             </Button>
                         )}
+
                         <Button onClick={() => setActiveModal('upload')} className="rounded-lg shadow-md bg-zinc-900 dark:bg-zinc-50 hover:bg-zinc-800">
-                            <UploadCloud size={16} className="md:mr-2"/> <p className='hidden md:block'>Unggah Media</p>
+                            <UploadCloud size={16} className="mr-2"/> <span className="hidden sm:inline">Unggah Media</span>
                         </Button>
                     </div>
                 </div>
@@ -71,6 +87,18 @@ export default function Index({ allAlbums, images, currentFilter }) {
                 />
 
                 {/* --- SEMUA MODALS DI SINI (Dari Partial) --- */}
+                {/* <GalleryModals 
+                    activeModal={activeModal}
+                    setActiveModal={setActiveModal}
+                    selectedImage={selectedImage}
+                    setSelectedImage={setSelectedImage}
+                    allAlbums={allAlbums}
+                    currentFilter={currentFilter}
+                    imageToEdit={imageToEdit}
+                    selectedIds={selectedIds}
+                    setSelectedIds={setSelectedIds}
+                /> */}
+
                 <GalleryModals 
                     activeModal={activeModal}
                     setActiveModal={setActiveModal}
@@ -81,6 +109,7 @@ export default function Index({ allAlbums, images, currentFilter }) {
                     imageToEdit={imageToEdit}
                     selectedIds={selectedIds}
                     setSelectedIds={setSelectedIds}
+                    images={images.data}
                 />
             </div>
         </AdminLayout>

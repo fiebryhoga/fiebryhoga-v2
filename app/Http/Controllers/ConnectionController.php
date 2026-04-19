@@ -85,31 +85,53 @@ class ConnectionController extends Controller
         return redirect()->back()->with('message', 'Tag berhasil dibuat.');
     }
 
+    // --- FITUR UPDATE DIPERBARUI UNTUK MENDUKUNG PINDAH POSISI (MOVE) ---
     public function updateTag(Request $request, ConnectionTag $tag)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255'
+            'name' => 'required|string|max:255',
+            'parent_id' => 'nullable|exists:connection_tags,id' // Tambahan validasi parent_id
         ]);
         
+        $oldName = $tag->name;
         $tag->update($validated);
 
         // Log & Notif
-        $this->logActivity("Memperbarui nama tag koneksi menjadi: {$validated['name']}", 'info');
-        auth()->user()->notify(new SystemActivity("Nama tag berhasil diperbarui.", "info"));
+        $this->logActivity("Memperbarui/Memindahkan tag koneksi '{$oldName}'", 'info');
+        auth()->user()->notify(new SystemActivity("Tag berhasil diperbarui.", "info"));
 
         return redirect()->back()->with('message', 'Tag berhasil diperbarui.');
     }
 
-    public function destroyTag(ConnectionTag $tag)
+    // --- FITUR DESTROY DIPERBARUI UNTUK MENDUKUNG HAPUS PAKSA (FORCE DELETE) ---
+    public function destroyTag(Request $request, ConnectionTag $tag)
     {
         $name = $tag->name;
+
+        // JIKA TOMBOL "HAPUS SEMUA ISI" DITEKAN
+        if ($request->boolean('force')) {
+            // Ambil semua kontak/koneksi di dalam tag ini
+            $connections = Connection::where('tag_id', $tag->id)->get();
+            
+            // Hapus file fisik avatar dan data kontak di dalamnya terlebih dahulu
+            foreach ($connections as $conn) {
+                if ($conn->avatar) {
+                    Storage::disk('public')->delete($conn->avatar);
+                }
+                $conn->delete();
+            }
+            $this->logActivity("Menghapus tag '{$name}' BESERTA SELURUH ISINYA secara permanen.", 'danger');
+            auth()->user()->notify(new SystemActivity("Tag '{$name}' dan seluruh kontaknya telah dihapus.", "warning"));
+        } else {
+            // Jika hapus biasa, isi aman (karena nullOnDelete di database)
+            $this->logActivity("Menghapus tag koneksi '{$name}' (Isi dipindahkan ke Root).", 'warning');
+            auth()->user()->notify(new SystemActivity("Tag '{$name}' telah dihapus dari sistem.", "warning"));
+        }
+
         $tag->delete();
 
-        // Log & Notif
-        $this->logActivity("Menghapus tag koneksi: {$name}", 'warning');
-        auth()->user()->notify(new SystemActivity("Tag '{$name}' telah dihapus dari sistem.", "warning"));
-
-        return redirect()->back()->with('message', 'Tag berhasil dihapus.');
+        // Redirect ke root connections agar tidak error jika sedang berada di dalam tag yang baru saja dihapus
+        return redirect()->route('connections.index')->with('message', 'Tag dan isinya telah diatur ulang.');
     }
 
     // ==========================================
@@ -189,5 +211,51 @@ class ConnectionController extends Controller
         auth()->user()->notify(new SystemActivity("Kontak '{$name}' telah dihapus secara permanen.", "warning"));
 
         return redirect()->back()->with('message', 'Kontak berhasil dihapus.');
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        $connections = Connection::whereIn('id', $ids)->get();
+        $count = count($connections);
+        
+        if ($count === 0) return redirect()->back();
+
+        foreach ($connections as $conn) {
+            if ($conn->avatar) {
+                Storage::disk('public')->delete($conn->avatar);
+            }
+            $conn->delete();
+        }
+
+        // Log & Notif
+        $this->logActivity("Menghapus masal {$count} data kontak", 'danger');
+        auth()->user()->notify(new SystemActivity("Sebanyak {$count} kontak telah dihapus.", "warning"));
+
+        return redirect()->back()->with('message', "{$count} kontak berhasil dihapus.");
+    }
+
+    public function bulkMove(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        $tagId = $request->input('tag_id'); 
+        $count = count($ids);
+        
+        if ($count === 0) return redirect()->back();
+
+        // Pindahkan ke Tag baru (Bisa null jika ingin dikeluarkan dari Tag)
+        Connection::whereIn('id', $ids)->update(['tag_id' => $tagId]);
+
+        $tagName = "Tanpa Tag (Root)";
+        if ($tagId) {
+            $tag = ConnectionTag::find($tagId);
+            if ($tag) $tagName = $tag->name;
+        }
+
+        // Log & Notif
+        $this->logActivity("Memindahkan {$count} kontak ke tag '{$tagName}'", 'info');
+        auth()->user()->notify(new SystemActivity("Berhasil memindahkan {$count} kontak.", "info"));
+
+        return redirect()->back()->with('message', "{$count} kontak dipindahkan.");
     }
 }
