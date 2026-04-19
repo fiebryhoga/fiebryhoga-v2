@@ -32,7 +32,7 @@ class SearchController extends Controller
             ]);
         }
 
-        // 2. Cari di tabel Tech Stack (Nama & Jenis)
+        // 2. Cari di tabel Tech Stack
         if (class_exists(\App\Models\TechStack::class)) {
             $techs = \App\Models\TechStack::where('name', 'like', "%{$query}%")
                 ->orWhere('type', 'like', "%{$query}%")
@@ -50,7 +50,7 @@ class SearchController extends Controller
             }
         }
 
-        // 3. Cari di tabel Projects (Nama & Jenis Proyek)
+        // 3. Cari di tabel Projects
         if (class_exists(\App\Models\Project::class)) {
             $projects = \App\Models\Project::where('name', 'like', "%{$query}%")
                 ->orWhere('type', 'like', "%{$query}%")
@@ -68,7 +68,7 @@ class SearchController extends Controller
             }
         }
 
-        // 4. Cari di tabel Education (Institusi, Gelar, Jurusan)
+        // 4. Cari di tabel Education
         if (class_exists(\App\Models\Education::class)) {
             $educations = \App\Models\Education::where('institution_name', 'like', "%{$query}%")
                 ->orWhere('degree', 'like', "%{$query}%")
@@ -87,9 +87,8 @@ class SearchController extends Controller
             }
         }
 
-        // 5. Cari di tabel Education Activity (Nama Aktivitas & Deskripsi)
+        // 5. Cari di tabel Education Activity
         if (class_exists(\App\Models\EducationActivity::class)) {
-            // Gunakan with('education') untuk menghindari N+1 Query Problem
             $eduActivities = \App\Models\EducationActivity::with('education')
                 ->where('name', 'like', "%{$query}%")
                 ->orWhere('description', 'like', "%{$query}%")
@@ -107,7 +106,7 @@ class SearchController extends Controller
             }
         }
 
-        // 6. Cari di tabel Career (Perusahaan, Jabatan, Lokasi)
+        // 6. Cari di tabel Career
         if (class_exists(\App\Models\Career::class)) {
             $careers = \App\Models\Career::where('company_name', 'like', "%{$query}%")
                 ->orWhere('job_title', 'like', "%{$query}%")
@@ -126,7 +125,7 @@ class SearchController extends Controller
             }
         }
 
-        // 7. Cari di tabel Career Activity (Nama Aktivitas & Deskripsi Pekerjaan)
+        // 7. Cari di tabel Career Activity
         if (class_exists(\App\Models\CareerActivity::class)) {
             $carActivities = \App\Models\CareerActivity::with('career')
                 ->where('name', 'like', "%{$query}%")
@@ -145,7 +144,7 @@ class SearchController extends Controller
             }
         }
 
-        // 8. Cari di tabel Articles / Blog
+        // 8. Cari di tabel Articles
         if (class_exists(\App\Models\Article::class)) {
             $articles = \App\Models\Article::where('title', 'like', "%{$query}%")->take(3)->get();
             foreach ($articles as $article) {
@@ -160,7 +159,7 @@ class SearchController extends Controller
             }
         }
 
-        // 9. Cari di tabel Contact (Platform & Value/Username)
+        // 9. Cari di tabel Contact (Sosmed)
         if (class_exists(\App\Models\Contact::class)) {
             $contacts = \App\Models\Contact::where('platform', 'like', "%{$query}%")
                 ->orWhere('value', 'like', "%{$query}%")
@@ -178,7 +177,84 @@ class SearchController extends Controller
             }
         }
 
-        // Ambil maksimal 12 hasil paling relevan agar dropdown tidak meledak ke bawah
-        return response()->json($results->take(12)->values()->all());
+        // ==========================================
+        // 10. CARI DI TABEL ALBUM GALERI
+        // ==========================================
+        if (class_exists(\App\Models\Album::class)) {
+            $albums = \App\Models\Album::where('name', 'like', "%{$query}%")->take(3)->get();
+            foreach ($albums as $album) {
+                $results->push([
+                    'id' => 'album_' . $album->id,
+                    'title' => $album->name,
+                    'subtitle' => 'Folder Album Galeri',
+                    'type' => 'Album',
+                    'image' => null, // Tidak ada gambar untuk folder
+                    'route' => route('gallery.index', ['album_id' => $album->id]) // Langsung mengarah masuk ke dalam album tersebut
+                ]);
+            }
+        }
+
+        // ==========================================
+        // 11. CARI DI TABEL FOTO GALERI
+        // ==========================================
+        if (class_exists(\App\Models\GalleryImage::class)) {
+            $images = \App\Models\GalleryImage::where('name', 'like', "%{$query}%")->take(3)->get();
+            foreach ($images as $img) {
+                $results->push([
+                    'id' => 'img_' . $img->id,
+                    'title' => $img->name,
+                    'subtitle' => 'Ukuran: ' . $img->size,
+                    'type' => 'Foto',
+                    'image' => $img->path, // Thumbnail foto akan muncul di pencarian
+                    'route' => route('gallery.index', ['album_id' => $img->album_id ?? 'uncategorized']) 
+                ]);
+            }
+        }
+
+        // ==========================================
+        // 12. CARI DI TABEL TAG KONEKSI
+        // ==========================================
+        if (class_exists(\App\Models\ConnectionTag::class)) {
+            $tags = \App\Models\ConnectionTag::where('name', 'like', "%{$query}%")->take(3)->get();
+            foreach ($tags as $tag) {
+                $results->push([
+                    'id' => 'conn_tag_' . $tag->id,
+                    'title' => $tag->name,
+                    'subtitle' => 'Grup/Tag Koneksi',
+                    'type' => 'Grup',
+                    'image' => null,
+                    'route' => route('connections.index', ['tag_id' => $tag->id]) // Mengarah filter ke Tag
+                ]);
+            }
+        }
+
+        // ==========================================
+        // 13. CARI DI TABEL KONEKSI / ORANG (Multi-kolom)
+        // ==========================================
+        if (class_exists(\App\Models\Connection::class)) {
+            $connections = \App\Models\Connection::where('full_name', 'like', "%{$query}%")
+                ->orWhere('nickname', 'like', "%{$query}%")
+                ->orWhere('whatsapp', 'like', "%{$query}%")
+                ->orWhere('instagram', 'like', "%{$query}%")
+                ->orWhere('address', 'like', "%{$query}%")
+                ->take(4)->get();
+                
+            foreach ($connections as $conn) {
+                // Tentukan info tambahan apa yang akan ditampilkan di subtitle
+                $subtitleInfo = $conn->whatsapp ? "WA: {$conn->whatsapp}" : ($conn->instagram ? "IG: @{$conn->instagram}" : "Relasi / Teman");
+
+                $results->push([
+                    'id' => 'conn_' . $conn->id,
+                    'title' => $conn->full_name . ($conn->nickname ? " ({$conn->nickname})" : ''),
+                    'subtitle' => $subtitleInfo,
+                    'type' => 'Koneksi',
+                    'image' => $conn->avatar, // Foto profil relasi akan muncul di pencarian
+                    'route' => route('connections.index', ['search' => $conn->full_name]) // Membuka menu koneksi dan otomatis mencari namanya
+                ]);
+            }
+        }
+
+        // Menambah jumlah limit pengambilan hasil agar memuat modul baru
+        return response()->json($results->take(15)->values()->all());
     }
 }

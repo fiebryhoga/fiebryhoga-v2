@@ -11,6 +11,7 @@ use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\GalleryController;
+use App\Http\Controllers\ConnectionController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -100,6 +101,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/gallery', [GalleryController::class, 'index'])->name('gallery.index');
     Route::post('/gallery/albums', [GalleryController::class, 'storeAlbum'])->name('gallery.albums.store');
     Route::delete('/gallery/albums/{album}', [GalleryController::class, 'destroyAlbum'])->name('gallery.albums.destroy');
+    Route::put('/gallery/albums/{album}', [GalleryController::class, 'updateAlbum'])->name('gallery.albums.update');
+
 
     Route::post('/gallery/images', [GalleryController::class, 'storeImages'])->name('gallery.images.store');
     Route::put('/gallery/images/{image}', [GalleryController::class, 'updateImage'])->name('gallery.images.update');
@@ -108,6 +111,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/gallery/images/bulk-destroy', [GalleryController::class, 'bulkDestroy'])->name('gallery.images.bulk-destroy');
     Route::post('/gallery/images/bulk-move', [GalleryController::class, 'bulkMove'])->name('gallery.images.bulk-move');
 
+    Route::get('/connections', [ConnectionController::class, 'index'])->name('connections.index');
+    Route::post('/connections', [ConnectionController::class, 'store'])->name('connections.store');
+    Route::post('/connections/{connection}', [ConnectionController::class, 'update'])->name('connections.update');
+    Route::delete('/connections/{connection}', [ConnectionController::class, 'destroy'])->name('connections.destroy');
+
+    Route::post('/connection-tags', [ConnectionController::class, 'storeTag'])->name('connection-tags.store');
+    Route::put('/connection-tags/{tag}', [ConnectionController::class, 'updateTag'])->name('connection-tags.update');
+    Route::delete('/connection-tags/{tag}', [ConnectionController::class, 'destroyTag'])->name('connection-tags.destroy');
     
     Route::get('/profile', [AdminController::class, 'profileEdit'])->name('profile.edit');
     Route::post('/profile', [AdminController::class, 'profileUpdate'])->name('profile.update');
